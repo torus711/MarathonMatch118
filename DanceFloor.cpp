@@ -85,12 +85,64 @@ namespace Global
 {
 	int N, C, D, S;
 	VT< VVI > Perms;
-	VI X, Y, T;
+	VVI X, Y, T;
+}
+
+constexpr int dy[] = { 0, 0, 1, 0, -1 };
+constexpr int dx[] = { 0, 1, 0, -1, 0 };
+const char *DIR = "-RDLU";
+
+bool inside( const int y, const int x )
+{
+	return 0 <= y && y < Global::N && 0 <= x && x < Global::N;
+}
+
+int distance( const int y1, const int x1, const int y2, const int x2 )
+{
+	return abs( y1 - y2 ) + abs( x1 - x2 );
 }
 
 VS solve()
 {
 	VS res( Global::S, string( Global::D, '-' ) );
+
+	VI ys( Global::D ), xs( Global::D );
+	REP( i, Global::D )
+	{
+		ys[i] = Global::Y[i][0];
+		xs[i] = Global::X[i][0];
+	}
+
+	REP( t, Global::S )
+	{
+		REP( i, Global::D )
+		{
+			const int cy = ys[i];
+			const int cx = xs[i];
+
+			const int tt = upper_bound( ALL( Global::T[i] ), t ) - begin( Global::T[i] );
+			const int ty = Global::Y[i][ tt ];
+			const int tx = Global::X[i][ tt ];
+
+			int dir = 0, dist = distance( cy, cx, ty, tx );
+			REP( d, 1, 5 )
+			{
+				const int ny = cy + dy[d];
+				const int nx = cx + dx[d];
+				if ( inside( ny, nx ) && chmin( dist, distance( ny, nx, ty, tx ) ) )
+				{
+					dir = d;
+				}
+			}
+
+			ys[i] = cy + dy[ dir ];
+			xs[i] = cx + dx[ dir ];
+
+			res[t][i] = DIR[ dir ];
+		}
+	}
+
+
 	return res;
 }
 
@@ -113,15 +165,18 @@ int main()
 			}
 		}
 	}
+	Global::X.resize( Global::D );
+	Global::Y.resize( Global::D );
+	Global::T.resize( Global::D );
 	REP( i, Global::D )
 	{
 		IN( int, P );
-		Global::X.resize( P );
-		Global::Y.resize( P );
-		Global::T.resize( P );
+		Global::X[i].resize( P );
+		Global::Y[i].resize( P );
+		Global::T[i].resize( P );
 		REP( j, P )
 		{
-			cin >> Global::X[i] >> Global::Y[i] >> Global::T[i];
+			cin >> Global::X[i][j] >> Global::Y[i][j] >> Global::T[i][j];
 		}
 	}
 
