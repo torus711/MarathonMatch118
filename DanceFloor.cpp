@@ -88,6 +88,12 @@ namespace Global
 	VI X, Y, T;
 }
 
+VS solve()
+{
+	VS res( Global::S, string( Global::D, '-' ) );
+	return res;
+}
+
 int main()
 {
 	cin.tie( 0 );
@@ -119,7 +125,10 @@ int main()
 		}
 	}
 
-// 	const VS result = solve();
+	const VS result = solve();
+	cout << Global::S << endl;
+	copy( ALL( result ), OSI< string >( cout, "\n" ) );
+	cout << flush;
 
 	return 0;
 }
