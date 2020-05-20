@@ -81,13 +81,45 @@ template < typename T > inline bool chmax( T &a, const T &b ){ if ( a < b ) { a 
 // ／| ￣U U￣|＼／
 //   |      |／
 
+namespace Global
+{
+	int N, C, D, S;
+	VT< VVI > Perms;
+	VI X, Y, T;
+}
+
 int main()
 {
 	cin.tie( 0 );
 	ios::sync_with_stdio( false );
 	cout << setprecision( 12 ) << fixed;
 
-	
+	cin >> Global::N >> Global::C >> Global::D >> Global::S;
+	Global::Perms.resize( Global::N, VVI( Global::N, VI( Global::C ) ) );
+	REP( i, Global::N )
+	{
+		REP( j, Global::N )
+		{
+			REP( k, Global::C )
+			{
+				IN( char, c );
+				Global::Perms[i][j][k] = c - '0';
+			}
+		}
+	}
+	REP( i, Global::D )
+	{
+		IN( int, P );
+		Global::X.resize( P );
+		Global::Y.resize( P );
+		Global::T.resize( P );
+		REP( j, P )
+		{
+			cin >> Global::X[i] >> Global::Y[i] >> Global::T[i];
+		}
+	}
+
+// 	const VS result = solve();
 
 	return 0;
 }
