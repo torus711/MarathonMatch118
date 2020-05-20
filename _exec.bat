@@ -1,1 +1,1 @@
-java -jar tester.jar -exec main -seed %1 -sz 32 -delay 25
+java -jar DanceFloor.jar -exec DanceFloor.exe -seed %1 -sz 32 -delay 25
