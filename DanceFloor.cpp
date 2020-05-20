@@ -81,6 +81,87 @@ template < typename T > inline bool chmax( T &a, const T &b ){ if ( a < b ) { a 
 // ／| ￣U U￣|＼／
 //   |      |／
 
+
+class DisjointSetForest
+{
+private:
+	const int N;
+
+	vector<int> parent;
+	vector<int> rank;
+
+	int groups_;
+	std::vector< int > sizes;
+
+public:
+	DisjointSetForest( int n ) : N( n ), parent( N ), rank( N, 0 ), groups_( N ), sizes( N, 1 )
+	{
+		std::iota( parent.begin(), parent.end(), 0 );
+
+		return;
+	}
+
+	int find( int x )
+	{
+		if ( parent[x] == x )
+		{
+			return x;
+		}
+		return parent[x] = find( parent[x] );
+	}
+
+	bool same( int x, int y )
+	{
+		return find( x ) == find( y );
+	}
+
+	bool unite( int x, int y )
+	{
+		x = find( x );
+		y = find( y );
+
+		if ( x == y )
+		{
+			return false;
+		}
+
+		if ( rank[x] < rank[y] )
+		{
+			parent[x] = y;
+			sizes[y] += sizes[x];
+		}
+		else
+		{
+			parent[y] = x;
+			sizes[x] += sizes[y];
+
+			if ( rank[x] == rank[y] )
+			{
+				++rank[x];
+			}
+		}
+
+		--groups_;
+		return true;
+	}
+
+	int groups() const
+	{
+		return groups_;
+	}
+
+	int groupSize( const int x )
+	{
+		return sizes[ find( x ) ];
+	}
+};
+// DisjointSetForest( N )
+// find( x )
+// same( x, y )
+// unite( x, y )
+// groups()
+// groupSize( x )
+
 namespace Global
 {
 	int N, C, D, S;
@@ -90,7 +171,7 @@ namespace Global
 
 constexpr int dy[] = { 0, 0, 1, 0, -1 };
 constexpr int dx[] = { 0, 1, 0, -1, 0 };
-const char *DIR = "-RDLU";
+const string DIR = "-RDLU";
 
 bool inside( const int y, const int x )
 {
@@ -100,6 +181,89 @@ bool inside( const int y, const int x )
 int distance( const int y1, const int x1, const int y2, const int x2 )
 {
 	return abs( y1 - y2 ) + abs( x1 - x2 );
+}
+
+int score( const VS &moves )
+{
+	VI ys( Global::D ), xs( Global::D );
+	REP( i, Global::D )
+	{
+		ys[i] = Global::Y[i][0];
+		xs[i] = Global::X[i][0];
+	}
+
+	VVI cs = VVI( Global::N, VI( Global::N ) );
+
+	int res = 0;
+	REP( t, Global::S )
+	{
+		REP( i, Global::D )
+		{
+			const int cy = ys[i];
+			const int cx = xs[i];
+
+			const int dir = find( ALL( DIR ), moves[t][i] ) - begin( DIR );
+			const int ny = cy + dy[ dir ];
+			const int nx = cx + dx[ dir ];
+
+			const int tt = upper_bound( ALL( Global::T[i] ), t ) - begin( Global::T[i] );
+			const int ty = Global::Y[i][ tt ];
+			const int tx = Global::X[i][ tt ];
+
+			if ( Global::T[i][ tt ] - t < distance( ny, nx, ty, tx ) )
+			{
+				res += Global::N * Global::N * Global::N;
+			}
+
+			if ( dir )
+			{
+				++cs[ ny ][ nx ] %= Global::C;
+			}
+
+			ys[i] = ny;
+			xs[i] = nx;
+		}
+	}
+
+	{
+		DisjointSetForest dsf( Global::N * Global::N );
+		const auto grid_id = [&]( const int y, const int x )
+		{
+			return y * Global::N + x;
+		};
+
+		REP( i, Global::N )
+		{
+			REP( j, Global::N )
+			{
+				if ( i + 1 < Global::N && Global::Perms[i][j][ cs[i][j] ] == Global::Perms[ i + 1 ][j][ cs[ i + 1 ][j] ] )
+				{
+					dsf.unite( grid_id( i, j ), grid_id( i + 1, j ) );
+				}
+				if ( j + 1 < Global::N && Global::Perms[i][j][ cs[i][j] ] == Global::Perms[i][ j + 1 ][ cs[i][ j + 1 ] ] )
+				{
+					dsf.unite( grid_id( i, j ), grid_id( i, j + 1 ) );
+				}
+			}
+		}
+		
+		VT< set< int > > groups( Global::C );
+		REP( i, Global::N )
+		{
+			REP( j, Global::N )
+			{
+				groups[ Global::Perms[i][j][ cs[i][j] ] ].insert( dsf.find( grid_id( i, j ) ) );
+			}
+		}
+
+		REP( i, Global::C )
+		{
+			const int g = SZ( groups[i] );
+			res += g * g;
+		}
+	}
+
+	return res;
 }
 
 VS solve()
