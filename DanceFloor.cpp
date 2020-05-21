@@ -81,6 +81,8 @@ template < typename T > inline bool chmax( T &a, const T &b ){ if ( a < b ) { a 
 // ／| ￣U U￣|＼／
 //   |      |／
 
+#include <random>
+mt19937 rng;
 
 class DisjointSetForest
 {
@@ -194,11 +196,29 @@ int score( const VS &moves )
 
 	VVI cs = VVI( Global::N, VI( Global::N ) );
 
+// 	DUMP( Global::Y[0] );
+// 	DUMP( Global::X[0] );
+// 	DUMP( Global::T[0] ) << endl;
+// 	DUMP( Global::Y[1] );
+// 	DUMP( Global::X[1] );
+// 	DUMP( Global::T[1] );
+// 	FOR( row, moves )
+// 	{
+// 		DUMP( row );
+// 	}
+// 	cerr << endl;
+
+
 	int res = 0;
 	REP( t, Global::S )
 	{
 		REP( i, Global::D )
 		{
+			if ( SZ( moves[t] ) <= i )
+			{
+				continue;
+			}
+
 			const int cy = ys[i];
 			const int cx = xs[i];
 
@@ -210,12 +230,25 @@ int score( const VS &moves )
 			const int ty = Global::Y[i][ tt ];
 			const int tx = Global::X[i][ tt ];
 
-			if ( Global::T[i][ tt ] - t < distance( ny, nx, ty, tx ) )
+			if ( !inside( ny, nx ) || Global::T[i][ tt ] - t - 1 < distance( ny, nx, ty, tx ) )
 			{
-				res += Global::N * Global::N * Global::N;
+				cerr << t << ' ' << i << endl;
+				DUMP( Global::T[i][ tt ] );
+				DUMP( t );
+				DUMP( i );
+				DUMP( moves[t][i] );
+				DUMP( ny );
+				DUMP( nx );
+				DUMP( ty );
+				DUMP( tx );
+				DUMP( distance( ny, nx, ty, tx ) );
+				DUMP( Global::T[i][ tt ] - t - 1 );
+				assert( false );
+				const int d = distance( ny, nx, ty, tx );
+				res += d * d * d;
 			}
 
-			if ( dir )
+			if ( inside( ny, nx ) && dir )
 			{
 				++cs[ ny ][ nx ] %= Global::C;
 			}
@@ -266,47 +299,77 @@ int score( const VS &moves )
 	return res;
 }
 
-VS solve()
+VS pack( const VT< VS > &paths )
 {
 	VS res( Global::S, string( Global::D, '-' ) );
 
-	VI ys( Global::D ), xs( Global::D );
 	REP( i, Global::D )
 	{
-		ys[i] = Global::Y[i][0];
-		xs[i] = Global::X[i][0];
-	}
-
-	REP( t, Global::S )
-	{
-		REP( i, Global::D )
+		const string s = accumulate( ALL( paths[i] ), string() );
+		REP( j, Global::S )
 		{
-			const int cy = ys[i];
-			const int cx = xs[i];
-
-			const int tt = upper_bound( ALL( Global::T[i] ), t ) - begin( Global::T[i] );
-			const int ty = Global::Y[i][ tt ];
-			const int tx = Global::X[i][ tt ];
-
-			int dir = 0, dist = distance( cy, cx, ty, tx );
-			REP( d, 1, 5 )
-			{
-				const int ny = cy + dy[d];
-				const int nx = cx + dx[d];
-				if ( inside( ny, nx ) && chmin( dist, distance( ny, nx, ty, tx ) ) )
-				{
-					dir = d;
-				}
-			}
-
-			ys[i] = cy + dy[ dir ];
-			xs[i] = cx + dx[ dir ];
-
-			res[t][i] = DIR[ dir ];
+			res[j][i] = s[j];
 		}
 	}
 
+	return res;
+}
 
+VS solve()
+{
+	VT< VS > paths( Global::D );
+	REP( i, Global::D )
+	{
+		REP( j, SZ( Global::X[i] ) - 1 )
+		{
+			const int dy = Global::Y[i][ j + 1 ] - Global::Y[i][j];
+			const int dx = Global::X[i][ j + 1 ] - Global::X[i][j];
+			const int dt = Global::T[i][ j + 1 ] - Global::T[i][j];
+
+			string p;
+			if ( dy )
+			{
+				p += string( abs( dy ), 0 < dy ? 'D' : 'U' );
+			}
+			if ( dx )
+			{
+				p += string( abs( dx ), 0 < dx ? 'R' :  'L' );
+			}
+			p += string( dt - ( abs( dy ) + abs( dx ) ), '-' );
+
+			random_shuffle( ALL( p ) );
+			paths[i].PB( p );
+		}
+	}
+
+	int current_score = score( pack( paths ) );
+
+	const clock_t clock_start = clock();
+	uniform_int_distribution< int > rng_D( 0, Global::D - 1 );
+
+	constexpr double TIME_LIMIT = 9.0;
+	while ( 1. * ( clock() - clock_start ) / CLOCKS_PER_SEC < TIME_LIMIT )
+	{
+		const int i = rng_D( rng );
+		uniform_int_distribution< int > rng_P( 0, SZ( paths[i] ) - 1 );
+		const int j = rng_P( rng );
+
+		const string s = paths[i][j];
+		random_shuffle( ALL( paths[i][j] ) );
+
+		const int next_score = score( pack( paths ) );
+		if ( !chmin( current_score, next_score ) )
+		{
+			paths[i][j] = s;
+		}
+	}
+
+	const auto res = pack( paths );
+
+	FOR( row, res )
+	{
+		DUMP( row );
+	}
 	return res;
 }
 
@@ -315,6 +378,8 @@ int main()
 	cin.tie( 0 );
 	ios::sync_with_stdio( false );
 	cout << setprecision( 12 ) << fixed;
+
+	const clock_t clock_start = clock();
 
 	cin >> Global::N >> Global::C >> Global::D >> Global::S;
 	Global::Perms.resize( Global::N, VVI( Global::N, VI( Global::C ) ) );
@@ -348,6 +413,9 @@ int main()
 	cout << Global::S << endl;
 	copy( ALL( result ), OSI< string >( cout, "\n" ) );
 	cout << flush;
+
+	clock_t clock_end = clock();
+	cerr << "Time : " << 1. * ( clock_end - clock_start ) / CLOCKS_PER_SEC << endl;
 
 	return 0;
 }
