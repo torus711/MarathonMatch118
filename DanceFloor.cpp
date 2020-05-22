@@ -82,7 +82,7 @@ template < typename T > inline bool chmax( T &a, const T &b ){ if ( a < b ) { a 
 //   |      |／
 
 #include <random>
-mt19937 rng;
+mt19937 rng( 711 );
 
 class DisjointSetForest
 {
@@ -185,79 +185,50 @@ int distance( const int y1, const int x1, const int y2, const int x2 )
 	return abs( y1 - y2 ) + abs( x1 - x2 );
 }
 
-int score( const VS &moves )
+class Score
 {
-	VI ys( Global::D ), xs( Global::D );
-	REP( i, Global::D )
-	{
-		ys[i] = Global::Y[i][0];
-		xs[i] = Global::X[i][0];
-	}
-
 	VVI cs = VVI( Global::N, VI( Global::N ) );
 
-// 	DUMP( Global::Y[0] );
-// 	DUMP( Global::X[0] );
-// 	DUMP( Global::T[0] ) << endl;
-// 	DUMP( Global::Y[1] );
-// 	DUMP( Global::X[1] );
-// 	DUMP( Global::T[1] );
-// 	FOR( row, moves )
-// 	{
-// 		DUMP( row );
-// 	}
-// 	cerr << endl;
-
-
-	int res = 0;
-	REP( t, Global::S )
+public:
+	Score( const VS &moves )
 	{
+		VI ys( Global::D ), xs( Global::D );
 		REP( i, Global::D )
 		{
-			if ( SZ( moves[t] ) <= i )
-			{
-				continue;
-			}
-
-			const int cy = ys[i];
-			const int cx = xs[i];
-
-			const int dir = find( ALL( DIR ), moves[t][i] ) - begin( DIR );
-			const int ny = cy + dy[ dir ];
-			const int nx = cx + dx[ dir ];
-
-			const int tt = upper_bound( ALL( Global::T[i] ), t ) - begin( Global::T[i] );
-			const int ty = Global::Y[i][ tt ];
-			const int tx = Global::X[i][ tt ];
-
-			if ( !inside( ny, nx ) || Global::T[i][ tt ] - t - 1 < distance( ny, nx, ty, tx ) )
-			{
-				cerr << t << ' ' << i << endl;
-				DUMP( Global::T[i][ tt ] );
-				DUMP( t );
-				DUMP( i );
-				DUMP( moves[t][i] );
-				DUMP( ny );
-				DUMP( nx );
-				DUMP( ty );
-				DUMP( tx );
-				DUMP( distance( ny, nx, ty, tx ) );
-				DUMP( Global::T[i][ tt ] - t - 1 );
-				assert( false );
-				const int d = distance( ny, nx, ty, tx );
-				res += d * d * d;
-			}
-
-			if ( inside( ny, nx ) && dir )
-			{
-				++cs[ ny ][ nx ] %= Global::C;
-			}
-
-			ys[i] = ny;
-			xs[i] = nx;
+			ys[i] = Global::Y[i][0];
+			xs[i] = Global::X[i][0];
 		}
+
+		REP( t, Global::S )
+		{
+			REP( i, Global::D )
+			{
+				if ( SZ( moves[t] ) <= i )
+				{
+					continue;
+				}
+
+				const int cy = ys[i];
+				const int cx = xs[i];
+
+				const int dir = find( ALL( DIR ), moves[t][i] ) - begin( DIR );
+				const int ny = cy + dy[ dir ];
+				const int nx = cx + dx[ dir ];
+
+				if ( inside( ny, nx ) && dir )
+				{
+					++cs[ ny ][ nx ] %= Global::C;
+				}
+
+				ys[i] = ny;
+				xs[i] = nx;
+			}
+		}
+
+		return;
 	}
 
+	int score() const
 	{
 		DisjointSetForest dsf( Global::N * Global::N );
 		const auto grid_id = [&]( const int y, const int x )
@@ -279,7 +250,7 @@ int score( const VS &moves )
 				}
 			}
 		}
-		
+
 		VT< set< int > > groups( Global::C );
 		REP( i, Global::N )
 		{
@@ -289,15 +260,34 @@ int score( const VS &moves )
 			}
 		}
 
+		int res = 0;
 		REP( i, Global::C )
 		{
 			const int g = SZ( groups[i] );
 			res += g * g;
 		}
+		return res;
 	}
 
-	return res;
-}
+	void update( int y, int x, const string &S, const bool restore = false )
+	{
+		FOR( c, S )
+		{
+			const int d = DIR.find( c );
+			const int ny = y + dy[d];
+			const int nx = x + dx[d];
+
+			if ( d )
+			{
+				( cs[ ny ][ nx ] += Global::C + ( restore ? -1 : 1 ) ) %= Global::C;
+			}
+
+			y = ny;
+			x = nx;
+		}
+		return;
+	}
+};
 
 VS pack( const VT< VS > &paths )
 {
@@ -317,6 +307,8 @@ VS pack( const VT< VS > &paths )
 
 VS solve()
 {
+	const clock_t clock_start = clock();
+
 	VT< VS > paths( Global::D );
 	REP( i, Global::D )
 	{
@@ -335,41 +327,86 @@ VS solve()
 			{
 				p += string( abs( dx ), 0 < dx ? 'R' :  'L' );
 			}
-			p += string( dt - ( abs( dy ) + abs( dx ) ), '-' );
+			p += string( dt - SZ( p ), '-' );
 
 			random_shuffle( ALL( p ) );
 			paths[i].PB( p );
 		}
 	}
 
-	int current_score = score( pack( paths ) );
+	Score score( pack( paths ) );
+	int current_score = score.score();
 
-	const clock_t clock_start = clock();
+	int best_score = current_score;
+	auto result = paths;
+
 	uniform_int_distribution< int > rng_D( 0, Global::D - 1 );
+	uniform_real_distribution< double > rng01( 0, 1 );
 
 	constexpr double TIME_LIMIT = 9.0;
-	while ( 1. * ( clock() - clock_start ) / CLOCKS_PER_SEC < TIME_LIMIT )
+	int iteration = 0;
+	for ( clock_t clock_now; 1. * ( ( clock_now = clock() ) - clock_start ) / CLOCKS_PER_SEC < TIME_LIMIT; ) REP( 32 )
 	{
+		++iteration;
+
+		const double T = TIME_LIMIT;
+		const double t = 1. * ( clock_now - clock_start ) / CLOCKS_PER_SEC;
+		const double temp_start = Global::N;
+		const double temp_end = 1;
+		const double temp = temp_start + ( temp_end - temp_start ) * ( t / T );
+
 		const int i = rng_D( rng );
 		uniform_int_distribution< int > rng_P( 0, SZ( paths[i] ) - 1 );
 		const int j = rng_P( rng );
 
-		const string s = paths[i][j];
-		random_shuffle( ALL( paths[i][j] ) );
-
-		const int next_score = score( pack( paths ) );
-		if ( !chmin( current_score, next_score ) )
+		string s = paths[i][j];
+// 		random_shuffle( ALL( s ) );
+		const int L = SZ( s );
 		{
+			uniform_int_distribution< int > rng_L( 0, L - 1 );
+			const int times = max< int >( 1, L / 5 * ( 1 - t / T ) );
+			REP( times )
+			{
+				const int idx1 = rng_L( rng );
+				const int idx2 = rng_L( rng );
+				swap( s[ idx1 ], s[ idx2 ] );
+			}
+		}
+
+		score.update( Global::Y[i][j], Global::X[i][j], paths[i][j], true );
+		score.update( Global::Y[i][j], Global::X[i][j], s );
+		const int next_score = score.score();
+
+		const double p = min( 1.0, exp( ( current_score - next_score ) / temp ) );
+		// when next_score will 
+// 		const double p = 1 - t / T;
+
+		if ( chmin( best_score, next_score ) )
+		{
+			result = paths;
+			result[i][j] = s;
+		}
+
+		if ( next_score < current_score || rng01( rng ) < p )
+// 		if ( next_score < current_score )
+		{
+// 			if ( !( next_score < current_score ) )
+// 			{
+// 				DUMP( p );
+// 			}
+			current_score = next_score;
 			paths[i][j] = s;
 		}
+		else
+		{
+			score.update( Global::Y[i][j], Global::X[i][j], s, true );
+			score.update( Global::Y[i][j], Global::X[i][j], paths[i][j] );
+		}
 	}
+	DUMP( iteration );
 
-	const auto res = pack( paths );
-
-	FOR( row, res )
-	{
-		DUMP( row );
-	}
+	DUMP( best_score );
+	const auto res = pack( result );
 	return res;
 }
 
