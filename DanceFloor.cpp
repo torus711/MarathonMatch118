@@ -269,13 +269,18 @@ public:
 		return res;
 	}
 
-	void update( int y, int x, const string &S, const bool restore = false )
+	bool update( int y, int x, const string &S, const bool restore = false )
 	{
 		FOR( c, S )
 		{
 			const int d = DIR.find( c );
 			const int ny = y + dy[d];
 			const int nx = x + dx[d];
+
+			if ( !inside( ny, nx ) )
+			{
+				return false;
+			}
 
 			if ( d )
 			{
@@ -285,7 +290,7 @@ public:
 			y = ny;
 			x = nx;
 		}
-		return;
+		return true;
 	}
 };
 
@@ -352,7 +357,7 @@ VS solve()
 		const double T = TIME_LIMIT;
 		const double t = 1. * ( clock_now - clock_start ) / CLOCKS_PER_SEC;
 		const double temp_start = Global::N;
-		const double temp_end = 1;
+		const double temp_end = 0.5;
 		const double temp = temp_start + ( temp_end - temp_start ) * ( t / T );
 
 		const int i = rng_D( rng );
@@ -361,8 +366,17 @@ VS solve()
 
 		string s = paths[i][j];
 // 		random_shuffle( ALL( s ) );
-		const int L = SZ( s );
+		if ( rng() % 2 && 2 <= count( ALL( s ), '-' ) )
 		{
+			const int idx1 = s.find( '-' );
+			const int idx2 = s.find( '-', idx1 + 1 );
+			const int base = 1 + rng() % 2;
+			s[ idx1 ] = DIR[ base ];
+			s[ idx2 ] = DIR[ base + 2 ];
+		}
+		else
+		{
+			const int L = SZ( s );
 			uniform_int_distribution< int > rng_L( 0, L - 1 );
 			const int times = max< int >( 1, L / 5 * ( 1 - t / T ) );
 			REP( times )
@@ -374,26 +388,22 @@ VS solve()
 		}
 
 		score.update( Global::Y[i][j], Global::X[i][j], paths[i][j], true );
-		score.update( Global::Y[i][j], Global::X[i][j], s );
+		const bool valid_move = score.update( Global::Y[i][j], Global::X[i][j], s );
 		const int next_score = score.score();
 
 		const double p = min( 1.0, exp( ( current_score - next_score ) / temp ) );
 		// when next_score will 
 // 		const double p = 1 - t / T;
 
-		if ( chmin( best_score, next_score ) )
+		if ( valid_move && chmin( best_score, next_score ) )
 		{
 			result = paths;
 			result[i][j] = s;
 		}
 
-		if ( next_score < current_score || rng01( rng ) < p )
+		if ( valid_move && ( next_score < current_score || rng01( rng ) < p ) )
 // 		if ( next_score < current_score )
 		{
-// 			if ( !( next_score < current_score ) )
-// 			{
-// 				DUMP( p );
-// 			}
 			current_score = next_score;
 			paths[i][j] = s;
 		}
